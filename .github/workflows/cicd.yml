@@ -4,12 +4,12 @@ on:
   push:
     branches:
       - main
+      - develop
 
 env:
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
   AWS_REGION: "us-east-1"
-  K8S_NAMESPACE: "default"
   EKS_CLUSTER_NAME: "k8s-training-cluster"
   IMAGE_NAME: "sagemaker-fastapi"
 
@@ -44,6 +44,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set namespace based on branch
+        run: |
+          # main -> default, develop -> staging
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "K8S_NAMESPACE=default" >> $GITHUB_ENV
+          else
+            echo "K8S_NAMESPACE=staging" >> $GITHUB_ENV
+          fi
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -65,6 +74,11 @@ jobs:
             --region ${{ env.AWS_REGION }} \
             --name ${{ env.EKS_CLUSTER_NAME }}
 
+      - name: Ensure namespace exists
+        run: |
+          kubectl create namespace ${{ env.K8S_NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Ensure GHCR image pull secret exists
         run: |
           kubectl create secret docker-registry registry-secrets \
@@ -72,7 +86,7 @@ jobs:
             --docker-username="${{ env.DOCKER_USERNAME }}" \
             --docker-password="${{ env.DOCKER_PASSWORD }}" \
             --docker-email="${{ env.DOCKER_USERNAME }}@users.noreply.github.com" \
-            -n ${{ env.K8S_NAMESPACE }} || echo "Secret already exists (from AM deployment)"
+            -n ${{ env.K8S_NAMESPACE }} || echo "Secret already exists"
 
       - name: Deploy to EKS
         run: kubectl apply -f k8s -n ${{ env.K8S_NAMESPACE }}
@@ -85,14 +99,12 @@ jobs:
 
       - name: Smoke test
         run: |
-          # Get the load balancer hostname
           EXTERNAL_IP=$(kubectl get svc cams-fraud-detection-svc \
             -n ${{ env.K8S_NAMESPACE }} \
             -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-          
+
           echo "Testing endpoint: http://$EXTERNAL_IP/health"
-          
-          # Retry up to 5 times with 15s delay to allow LB to provision
+
           for i in {1..5}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$EXTERNAL_IP/health)
             if [ "$STATUS" == "200" ]; then
@@ -102,7 +114,7 @@ jobs:
             echo "Attempt $i failed (status: $STATUS), retrying in 15s..."
             sleep 15
           done
-          
+
           echo "Smoke test failed after 5 attempts"
           exit 1
 
