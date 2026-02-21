@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cams-fraud-config
-  namespace: default
+
 data:
   SAGEMAKER_ENDPOINT: "cams-fraud-endpoint-1771690056"
   AWS_REGION: "us-east-1"
