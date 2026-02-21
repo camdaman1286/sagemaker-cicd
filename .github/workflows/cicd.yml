@@ -105,3 +105,13 @@ jobs:
           
           echo "Smoke test failed after 5 attempts"
           exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment or smoke test failed — rolling back..."
+          kubectl rollout undo deployment/cams-fraud-detection \
+            -n ${{ env.K8S_NAMESPACE }}
+          kubectl rollout status deployment/cams-fraud-detection \
+            -n ${{ env.K8S_NAMESPACE }}
+          echo "Rollback complete"
