@@ -112,7 +112,7 @@ jobs:
               exit 0
             fi
             echo "Attempt $i failed (status: $STATUS), retrying in 15s..."
-            sleep 15
+            sleep 30
           done
 
           echo "Smoke test failed after 5 attempts"
