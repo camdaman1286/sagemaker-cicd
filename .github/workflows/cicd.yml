@@ -82,3 +82,26 @@ jobs:
           kubectl get deployments -n ${{ env.K8S_NAMESPACE }}
           kubectl get pods -n ${{ env.K8S_NAMESPACE }}
           kubectl get svc -n ${{ env.K8S_NAMESPACE }}
+
+      - name: Smoke test
+        run: |
+          # Get the load balancer hostname
+          EXTERNAL_IP=$(kubectl get svc cams-fraud-detection-svc \
+            -n ${{ env.K8S_NAMESPACE }} \
+            -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          
+          echo "Testing endpoint: http://$EXTERNAL_IP/health"
+          
+          # Retry up to 5 times with 15s delay to allow LB to provision
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$EXTERNAL_IP/health)
+            if [ "$STATUS" == "200" ]; then
+              echo "Smoke test passed — /health returned 200"
+              exit 0
+            fi
+            echo "Attempt $i failed (status: $STATUS), retrying in 15s..."
+            sleep 15
+          done
+          
+          echo "Smoke test failed after 5 attempts"
+          exit 1
