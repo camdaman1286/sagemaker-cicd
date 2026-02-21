@@ -20,11 +20,10 @@ spec:
           image: ghcr.io/camdaman1286/sagemaker-fastapi:latest
           ports:
             - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: cams-fraud-config
           env:
-            - name: SAGEMAKER_ENDPOINT
-              value: "cams-fraud-endpoint-1771690056"
-            - name: AWS_REGION
-              value: "us-east-1"
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
@@ -56,4 +55,4 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 10
             failureThreshold: 3
-            timeoutSeconds: 5  # Allow time for SageMaker API call
+            timeoutSeconds: 5
