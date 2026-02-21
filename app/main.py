@@ -18,7 +18,7 @@ sagemaker_runtime = boto3.client(
     "sagemaker-runtime",
     region_name=REGION,
     endpoint_url=SAGEMAKER_ENDPOINT_URL,
-    verify=False  # Skip SSL verification since we're using IP directly
+    verify=False
 )
 
 
@@ -33,7 +33,7 @@ class PredictionResponse(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "healthy", "version": "v2.0"}  # updated
 
 
 @app.get("/ready")
