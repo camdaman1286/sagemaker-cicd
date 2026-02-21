@@ -46,7 +46,6 @@ jobs:
 
       - name: Set namespace based on branch
         run: |
-          # main -> default, develop -> staging
           if [ "${{ github.ref_name }}" == "main" ]; then
             echo "K8S_NAMESPACE=default" >> $GITHUB_ENV
           else
@@ -79,14 +78,18 @@ jobs:
           kubectl create namespace ${{ env.K8S_NAMESPACE }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Ensure GHCR image pull secret exists
+      - name: Ensure secrets exist in namespace
         run: |
+          kubectl create secret generic aws-credentials \
+            --from-literal=AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            --from-literal=AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            -n ${{ env.K8S_NAMESPACE }} || echo "AWS secret already exists"
           kubectl create secret docker-registry registry-secrets \
             --docker-server=ghcr.io \
             --docker-username="${{ env.DOCKER_USERNAME }}" \
             --docker-password="${{ env.DOCKER_PASSWORD }}" \
             --docker-email="${{ env.DOCKER_USERNAME }}@users.noreply.github.com" \
-            -n ${{ env.K8S_NAMESPACE }} || echo "Secret already exists"
+            -n ${{ env.K8S_NAMESPACE }} || echo "GHCR secret already exists"
 
       - name: Deploy to EKS
         run: kubectl apply -f k8s -n ${{ env.K8S_NAMESPACE }}
@@ -111,7 +114,7 @@ jobs:
               echo "Smoke test passed — /health returned 200"
               exit 0
             fi
-            echo "Attempt $i failed (status: $STATUS), retrying in 15s..."
+            echo "Attempt $i failed (status: $STATUS), retrying in 30s..."
             sleep 30
           done
 
