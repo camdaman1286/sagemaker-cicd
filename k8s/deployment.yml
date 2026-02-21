@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cams-fraud-detection
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cams-fraud-detection
+  template:
+    metadata:
+      labels:
+        app: cams-fraud-detection
+    spec:
+      imagePullSecrets:
+        - name: registry-secrets
+      containers:
+        - name: fraud-detection
+          image: ghcr.io/camdaman1286/sagemaker-fastapi:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: SAGEMAKER_ENDPOINT
+              value: "cams-fraud-endpoint-1771690056"
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: AWS_SECRET_ACCESS_KEY
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5  # Allow time for SageMaker API call
